@@ -81,7 +81,9 @@ const defaultConfig = {
                 ]
             },
             request: {
-                regex: []
+                regex: [
+                    "https://www.ofiii.com/player",
+                ]
             },
             bilibili: {
                 regex: [
@@ -545,22 +547,15 @@ const PARSER = {
         constructor() {
             super();
             this.video = undefined;
+            this.className = 'REQUEST';
             let that = this;
             const open = XMLHttpRequest.prototype.open;
             XMLHttpRequest.prototype.open = function (method, url, async, user, password) {
-                if (!that.video) {
-                    let urls = url.match(VIDEO_URL_REGEX_GLOBAL) || [];
-                    for (const vurl of urls) {
-                        that.check(vurl).check().then(
-                            result => {
-                                if (result === true) {
-                                    that.video = vurl;
-                                }
-                            }
-                        )
-                    }
-
+                let urls = url.match(VIDEO_URL_REGEX_GLOBAL) || [];
+                for (const vurl of urls) {
+                    that.video = vurl;
                 }
+
                 return open.apply(this, arguments);
             };
 
@@ -568,18 +563,11 @@ const PARSER = {
 
             window.fetch = function (url, options) {
                 return originalFetch(url, options).then(response => {
-                    if (!that.video) {
-                        let urls = url.match(VIDEO_URL_REGEX_GLOBAL) || [];
-                        for (const vurl of urls) {
-                            that.check(vurl).check().then(
-                                result => {
-                                    if (result === true) {
-                                        that.video = vurl;
-                                    }
-                                }
-                            )
-                        }
+                    let urls = url.match(VIDEO_URL_REGEX_GLOBAL) || [];
+                    for (const vurl of urls) {
+                        that.video = vurl;
                     }
+
                     return response;
                 });
             };
@@ -948,6 +936,10 @@ const PARSER = {
         }
     },
     IFRAME: class Parser extends BaseParser {
+        constructor() {
+            super();
+            this.className = 'IFRAME';
+        }
         async execute() {
             iframe.postMessage({
                 name: PROJECT_NAME,
@@ -2649,6 +2641,9 @@ async function init(url) {
 
 setInterval(() => {
     const url = location.href;
+    if (iframe && !currentParser) {
+        currentParser = new PARSER.IFRAME();
+    }
     if (currentUrl !== url) {
         console.log(`current url update: ${currentUrl ? currentUrl + ' => ' : ''}${url}`);
         if (currentUrl && currentUrl.indexOf('?') > -1 &&
